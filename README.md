@@ -2,6 +2,10 @@
 
 An enterprise-ready, 100% offline document intelligence tool powered by a fine-tuned 0.5B Small Language Model (SLM). Transforms messy receipt text, billing statements, and unstructured OCR output into strict, validated JSON.
 
+<p align="center">
+  <img src="assets/docujson_demo.png" alt="DocuJSON Studio Interface" width="850"/>
+</p>
+
 ---
 
 ## 🔒 Enterprise Privacy & Compliance
