@@ -1,0 +1,960 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DocuJSON Studio - Private Offline Receipt & Invoice Extractor</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-base: #090d16;
+      --bg-surface: #111827;
+      --bg-card: rgba(23, 32, 51, 0.7);
+      --border: rgba(255, 255, 255, 0.08);
+      --border-focus: rgba(16, 185, 129, 0.5);
+      --primary: #10b981;
+      --primary-glow: rgba(16, 185, 129, 0.25);
+      --accent: #6366f1;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --text-dim: #64748b;
+      --card-highlight: #1e293b;
+      --success: #34d399;
+      --warning: #fbbf24;
+      --error: #f87171;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background-color: var(--bg-base);
+      color: var(--text-main);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow-x: hidden;
+      background-image: 
+        radial-gradient(circle at 15% 15%, rgba(16, 185, 129, 0.08) 0%, transparent 40%),
+        radial-gradient(circle at 85% 85%, rgba(99, 102, 241, 0.08) 0%, transparent 40%);
+    }
+
+    /* Top Navigation */
+    header {
+      border-bottom: 1px solid var(--border);
+      backdrop-filter: blur(12px);
+      background: rgba(9, 13, 22, 0.85);
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      padding: 0.875rem 2rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 0.875rem;
+    }
+
+    .brand-icon {
+      width: 40px;
+      height: 40px;
+      background: linear-gradient(135deg, #10b981, #059669);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.25rem;
+      box-shadow: 0 4px 14px var(--primary-glow);
+    }
+
+    .brand-title {
+      font-size: 1.15rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .brand-subtitle {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+
+    .header-badges {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.35rem 0.75rem;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      border: 1px solid var(--border);
+      background: rgba(255, 255, 255, 0.03);
+      transition: all 0.3s ease;
+    }
+
+    .badge-engine {
+      color: var(--warning);
+      border-color: rgba(251, 191, 36, 0.3);
+      background: rgba(251, 191, 36, 0.08);
+    }
+
+    .badge-engine.ready {
+      color: var(--success);
+      border-color: rgba(16, 185, 129, 0.3);
+      background: rgba(16, 185, 129, 0.08);
+    }
+
+    .badge-offline {
+      color: #93c5fd;
+      border-color: rgba(59, 130, 246, 0.3);
+      background: rgba(59, 130, 246, 0.08);
+    }
+
+    .pulse-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: currentColor;
+      box-shadow: 0 0 8px currentColor;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.85); }
+    }
+
+    /* Main Container */
+    main {
+      flex: 1;
+      padding: 2rem;
+      max-width: 1600px;
+      width: 100%;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.75rem;
+    }
+
+    @media (max-width: 1024px) {
+      main {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .panel {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      backdrop-filter: blur(16px);
+      padding: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    }
+
+    .panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 1rem;
+    }
+
+    .panel-title {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    /* Preset Buttons */
+    .presets-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+
+    .preset-label {
+      font-size: 0.75rem;
+      color: var(--text-dim);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: -0.25rem;
+    }
+
+    .btn-preset {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      border-radius: 8px;
+      padding: 0.4rem 0.75rem;
+      font-size: 0.75rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      font-family: inherit;
+    }
+
+    .btn-preset:hover {
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text-main);
+      border-color: rgba(255, 255, 255, 0.2);
+    }
+
+    /* Input Box */
+    .textarea-wrapper {
+      position: relative;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 380px;
+      flex: 1;
+      background: rgba(9, 13, 22, 0.6);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      color: var(--text-main);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.85rem;
+      padding: 1.25rem;
+      resize: vertical;
+      line-height: 1.6;
+      transition: border 0.2s;
+    }
+
+    textarea:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px var(--primary-glow);
+    }
+
+    .action-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #10b981, #059669);
+      color: white;
+      border: none;
+      border-radius: 10px;
+      padding: 0.8rem 1.75rem;
+      font-size: 0.9rem;
+      font-weight: 700;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.6rem;
+      transition: all 0.2s ease;
+      box-shadow: 0 4px 16px var(--primary-glow);
+    }
+
+    .btn-primary:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none !important;
+      box-shadow: none !important;
+    }
+
+    .btn-primary:not(:disabled):hover {
+      opacity: 0.95;
+      transform: translateY(-1px);
+      box-shadow: 0 6px 20px var(--primary-glow);
+    }
+
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      border-radius: 10px;
+      padding: 0.8rem 1.25rem;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.1);
+      color: var(--text-main);
+    }
+
+    /* Output Panel */
+    .tab-bar {
+      display: flex;
+      gap: 0.5rem;
+      background: rgba(9, 13, 22, 0.5);
+      padding: 0.3rem;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+    }
+
+    .tab-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      padding: 0.4rem 0.9rem;
+      font-size: 0.78rem;
+      font-weight: 600;
+      border-radius: 7px;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-family: inherit;
+    }
+
+    .tab-btn.active {
+      background: var(--card-highlight);
+      color: var(--text-main);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    }
+
+    .metrics-bar {
+      display: flex;
+      align-items: center;
+      gap: 1.5rem;
+      padding: 0.6rem 1rem;
+      border-radius: 8px;
+      background: rgba(0, 0, 0, 0.25);
+      border: 1px solid var(--border);
+      font-size: 0.75rem;
+    }
+
+    .metric-item {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      color: var(--text-muted);
+    }
+
+    .metric-value {
+      color: var(--text-main);
+      font-weight: 700;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    /* Card View Output */
+    .extracted-card-view {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      flex: 1;
+      overflow-y: auto;
+      max-height: 520px;
+      padding-right: 0.25rem;
+    }
+
+    .vendor-summary-card {
+      background: linear-gradient(135deg, rgba(30, 41, 59, 0.7), rgba(15, 23, 42, 0.9));
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 12px;
+      padding: 1.25rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .vendor-name {
+      font-size: 1.25rem;
+      font-weight: 800;
+      color: #ffffff;
+      letter-spacing: -0.01em;
+    }
+
+    .vendor-date {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      margin-top: 0.2rem;
+    }
+
+    .total-badge-box {
+      text-align: right;
+    }
+
+    .total-label {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-dim);
+      font-weight: 700;
+    }
+
+    .total-price {
+      font-size: 1.6rem;
+      font-weight: 800;
+      color: var(--success);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .items-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.825rem;
+      background: rgba(9, 13, 22, 0.5);
+      border-radius: 10px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+    }
+
+    .items-table th {
+      background: rgba(255, 255, 255, 0.03);
+      color: var(--text-dim);
+      text-align: left;
+      padding: 0.65rem 1rem;
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      font-weight: 700;
+    }
+
+    .items-table td {
+      padding: 0.75rem 1rem;
+      border-top: 1px solid var(--border);
+      color: var(--text-main);
+    }
+
+    .items-table td.price {
+      text-align: right;
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 600;
+      color: #e2e8f0;
+    }
+
+    .breakdown-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0.75rem;
+    }
+
+    .breakdown-box {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.75rem;
+    }
+
+    .breakdown-title {
+      font-size: 0.7rem;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      font-weight: 700;
+    }
+
+    .breakdown-amount {
+      font-size: 1.05rem;
+      font-weight: 700;
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--text-main);
+      margin-top: 0.2rem;
+    }
+
+    /* JSON Raw Code View */
+    .json-code-container {
+      flex: 1;
+      display: none;
+      position: relative;
+    }
+
+    pre code {
+      display: block;
+      background: #090d16;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.25rem;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.825rem;
+      line-height: 1.6;
+      color: #38bdf8;
+      overflow-x: auto;
+      height: 100%;
+      max-height: 520px;
+    }
+
+    /* Empty state */
+    .empty-state {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 3rem 1rem;
+      color: var(--text-dim);
+      border: 1px dashed var(--border);
+      border-radius: 12px;
+    }
+
+    .empty-state-icon {
+      font-size: 2.5rem;
+      margin-bottom: 0.75rem;
+      opacity: 0.6;
+    }
+
+    /* In-page status banner */
+    .notice-banner {
+      display: none;
+      padding: 0.65rem 1rem;
+      border-radius: 8px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      margin-top: 0.5rem;
+    }
+
+    .notice-banner.error {
+      display: block;
+      background: rgba(239, 68, 68, 0.12);
+      border: 1px solid rgba(239, 68, 68, 0.35);
+      color: #fca5a5;
+    }
+
+    .notice-banner.info {
+      display: block;
+      background: rgba(59, 130, 246, 0.12);
+      border: 1px solid rgba(59, 130, 246, 0.35);
+      color: #93c5fd;
+    }
+
+    /* Footer */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 1rem 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      color: var(--text-dim);
+      font-size: 0.75rem;
+      background: rgba(9, 13, 22, 0.6);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Navigation -->
+  <header>
+    <div class="brand">
+      <div class="brand-icon">🧾</div>
+      <div>
+        <div class="brand-title">DocuJSON Studio</div>
+        <div class="brand-subtitle">Enterprise On-Premises Document Intelligence</div>
+      </div>
+    </div>
+    <div class="header-badges">
+      <div class="badge badge-engine" id="engineBadge">
+        <span class="pulse-dot"></span>
+        <span id="engineStatus">Engine Warming Up...</span>
+      </div>
+      <div class="badge badge-offline">
+        🔒 100% Offline / Zero Cloud PII Leaks
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Work Area -->
+  <main>
+    <!-- Left Panel: Input -->
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-title">📄 Raw Receipt / Invoice Text</div>
+        <button class="btn-secondary" style="padding: 0.35rem 0.75rem; font-size: 0.75rem;" onclick="clearInput()">Clear</button>
+      </div>
+
+      <div>
+        <div class="preset-label" style="margin-bottom: 0.4rem;">Sample Presets</div>
+        <div class="presets-container">
+          <button class="btn-preset" onclick="loadPreset('coffee')">☕ Coffee Lab</button>
+          <button class="btn-preset" onclick="loadPreset('grocery')">🛒 Trader Joe's</button>
+          <button class="btn-preset" onclick="loadPreset('ride')">🚕 Uber Ride</button>
+          <button class="btn-preset" onclick="loadPreset('hardware')">💻 Apple Store</button>
+          <button class="btn-preset" onclick="loadPreset('hotel')">🏨 Grand Hyatt</button>
+        </div>
+      </div>
+
+      <div class="textarea-wrapper">
+        <textarea id="receiptInput" placeholder="Paste unstructured OCR text, receipt content, POS slip, or billing email here..."></textarea>
+      </div>
+
+      <div id="noticeBanner" class="notice-banner"></div>
+
+      <div class="action-row">
+        <span style="font-size: 0.75rem; color: var(--text-dim);">Shortcuts: <kbd style="background: rgba(255,255,255,0.08); padding: 2px 5px; border-radius: 4px;">Ctrl+Enter</kbd> to run</span>
+        <button class="btn-primary" id="extractBtn" onclick="runExtraction()" disabled>
+          <span id="btnIcon">⏳</span>
+          <span id="btnText">Warming Up AI Engine...</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Right Panel: Output -->
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-title">✨ Structured Output</div>
+        <div class="tab-bar">
+          <button class="tab-btn active" id="tabCardBtn" onclick="switchTab('card')">Interactive Card</button>
+          <button class="tab-btn" id="tabJsonBtn" onclick="switchTab('json')">Strict JSON</button>
+        </div>
+      </div>
+
+      <div class="metrics-bar">
+        <div class="metric-item">
+          <span>Latency:</span>
+          <span class="metric-value" id="metricLatency">-- ms</span>
+        </div>
+        <div class="metric-item">
+          <span>Tokens:</span>
+          <span class="metric-value" id="metricTokens">--</span>
+        </div>
+        <div class="metric-item">
+          <span>Schema:</span>
+          <span class="metric-value" id="metricStatus" style="color: var(--text-dim);">Awaiting Input</span>
+        </div>
+      </div>
+
+      <!-- Card View -->
+      <div class="extracted-card-view" id="cardContainer">
+        <div class="empty-state" id="emptyState">
+          <div class="empty-state-icon">📋</div>
+          <p style="font-weight: 600; color: var(--text-muted); margin-bottom: 0.25rem;">No Receipt Processed Yet</p>
+          <p style="font-size: 0.8rem;">Select a preset on the left or paste your own receipt to see structured extraction.</p>
+        </div>
+
+        <div id="cardContent" style="display: none; flex-direction: column; gap: 1rem;">
+          <div class="vendor-summary-card">
+            <div>
+              <div class="vendor-name" id="cardVendor">--</div>
+              <div class="vendor-date" id="cardDate">Date: --</div>
+            </div>
+            <div class="total-badge-box">
+              <div class="total-label">Total Amount</div>
+              <div class="total-price" id="cardTotal">$0.00</div>
+            </div>
+          </div>
+
+          <table class="items-table">
+            <thead>
+              <tr>
+                <th>Item Description</th>
+                <th style="text-align: right;">Price</th>
+              </tr>
+            </thead>
+            <tbody id="cardItemsBody"></tbody>
+          </table>
+
+          <div class="breakdown-grid">
+            <div class="breakdown-box">
+              <div class="breakdown-title">Subtotal</div>
+              <div class="breakdown-amount" id="cardSubtotal">$0.00</div>
+            </div>
+            <div class="breakdown-box">
+              <div class="breakdown-title">Tax</div>
+              <div class="breakdown-amount" id="cardTax">$0.00</div>
+            </div>
+            <div class="breakdown-box">
+              <div class="breakdown-title">Payment Method</div>
+              <div class="breakdown-amount" id="cardPayment" style="font-size: 0.9rem; font-family: inherit;">--</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- JSON Code View -->
+      <div class="json-code-container" id="jsonContainer">
+        <pre><code id="jsonCodeBlock">// Strict JSON will appear here after extraction</code></pre>
+      </div>
+
+      <div class="action-row" style="border-top: 1px solid var(--border); padding-top: 1rem;">
+        <button class="btn-secondary" onclick="copyJson()">📋 Copy JSON</button>
+        <button class="btn-secondary" onclick="downloadJson()">💾 Download .json</button>
+      </div>
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <footer>
+    <div>DocuJSON Studio • Air-Gapped Local Intelligence System</div>
+    <div>Zero external cloud dependencies • Pure on-device inference</div>
+  </footer>
+
+  <script>
+    const PRESETS = {
+      coffee: `COFFEE LAB & ROASTERS
+Date: 2024-11-04
+1x Oat Flat White $5.50
+1x Almond Croissant $4.75
+1x Cold Brew Bottle $6.00
+Subtotal: $16.25
+Tax (8%): $1.30
+Total Amount: $17.55
+Paid with VISA ending 9821`,
+
+      grocery: `TRADER JOE'S #542
+10/15/2024 14:22
+Organic Honey Crisp Apples 1.99
+Almond Butter Creamy 0.49
+Sparkling Water 6pk 0.99
+Subtotal: 3.47
+Tax: 0.00
+Total: 3.47
+Payment: Apple Pay`,
+
+      ride: `Uber Technologies Inc.
+Trip Date: Oct 28, 2024
+Base Fare: $14.50
+Surge Multiplier (1.2x): $3.50
+Airport Surcharge: $4.00
+Subtotal: $22.00
+Tax: $1.80
+Total: $23.80
+Charged to Amex *4001`,
+
+      hardware: `Apple Store - Fifth Avenue
+Date: 2024-09-20
+USB-C Charge Cable (2m) $29.00
+20W USB-C Power Adapter $19.00
+MagSafe Charger $39.00
+Subtotal: $87.00
+NY State Tax (8.875%): $7.72
+Order Total: $94.72
+Payment Method: Mastercard ending 1120`,
+
+      hotel: `GRAND HYATT REGENCY
+Invoice #994821 - Date: 2024-10-02
+Room Charge 1 Night $220.00
+In-Room Dining $45.50
+Valet Parking $30.00
+Subtotal: $295.50
+City Tourism Tax: $26.60
+Grand Total: $322.10
+Payment: Corporate Card Visa`
+    };
+
+    let latestJsonData = null;
+    let isModelReady = false;
+    let timerInterval = null;
+
+    function showNotice(text, type = 'error') {
+      const banner = document.getElementById('noticeBanner');
+      banner.textContent = text;
+      banner.className = 'notice-banner ' + type;
+      banner.style.display = 'block';
+    }
+
+    function hideNotice() {
+      const banner = document.getElementById('noticeBanner');
+      banner.style.display = 'none';
+    }
+
+    function loadPreset(key) {
+      document.getElementById('receiptInput').value = PRESETS[key] || '';
+      hideNotice();
+    }
+
+    function clearInput() {
+      document.getElementById('receiptInput').value = '';
+      hideNotice();
+    }
+
+    function switchTab(mode) {
+      const cardTab = document.getElementById('tabCardBtn');
+      const jsonTab = document.getElementById('tabJsonBtn');
+      const cardContainer = document.getElementById('cardContainer');
+      const jsonContainer = document.getElementById('jsonContainer');
+
+      if (mode === 'card') {
+        cardTab.classList.add('active');
+        jsonTab.classList.remove('active');
+        cardContainer.style.display = 'flex';
+        jsonContainer.style.display = 'none';
+      } else {
+        jsonTab.classList.add('active');
+        cardTab.classList.remove('active');
+        cardContainer.style.display = 'none';
+        jsonContainer.style.display = 'block';
+      }
+    }
+
+    async function runExtraction() {
+      if (!isModelReady) {
+        showNotice("Model is still initializing weights. Please wait a few seconds...", "info");
+        return;
+      }
+
+      const text = document.getElementById('receiptInput').value.trim();
+      if (!text) {
+        showNotice("Please enter or select a receipt first.");
+        return;
+      }
+      hideNotice();
+
+      const btn = document.getElementById('extractBtn');
+      const btnIcon = document.getElementById('btnIcon');
+      const btnText = document.getElementById('btnText');
+      btn.disabled = true;
+
+      let elapsedSeconds = 0;
+      btnIcon.textContent = "⏳";
+      btnText.textContent = `Extracting Data... (0s)`;
+      timerInterval = setInterval(() => {
+        elapsedSeconds++;
+        btnText.textContent = `Extracting Data... (${elapsedSeconds}s)`;
+      }, 1000);
+
+      document.getElementById('metricStatus').textContent = "Processing...";
+      document.getElementById('metricStatus').style.color = "var(--warning)";
+
+      try {
+        const response = await fetch('/api/extract', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text })
+        });
+
+        const res = await response.json();
+        if (res.success && res.data) {
+          latestJsonData = res.data;
+          renderResults(res.data, res.latency_ms, res.tokens_generated);
+        } else {
+          showNotice(res.detail || res.error || "Extraction failed. Please retry.");
+          document.getElementById('metricStatus').textContent = "Parse Error";
+          document.getElementById('metricStatus').style.color = "var(--error)";
+        }
+      } catch (err) {
+        showNotice("Engine busy or connection dropped. Please wait 3 seconds and retry.");
+        document.getElementById('metricStatus').textContent = "Connection Error";
+        document.getElementById('metricStatus').style.color = "var(--error)";
+      } finally {
+        clearInterval(timerInterval);
+        btn.disabled = false;
+        btnIcon.textContent = "⚡";
+        btnText.textContent = "Extract Structured JSON";
+      }
+    }
+
+    function renderResults(data, latency, tokens) {
+      document.getElementById('metricLatency').textContent = latency + ' ms';
+      document.getElementById('metricTokens').textContent = tokens || '--';
+      document.getElementById('metricStatus').textContent = "Strict Valid JSON";
+      document.getElementById('metricStatus').style.color = "var(--success)";
+
+      document.getElementById('emptyState').style.display = 'none';
+      const cardContent = document.getElementById('cardContent');
+      cardContent.style.display = 'flex';
+
+      document.getElementById('cardVendor').textContent = data.vendor || 'Unknown Vendor';
+      document.getElementById('cardDate').textContent = 'Date: ' + (data.date || 'N/A');
+      document.getElementById('cardTotal').textContent = '$' + (Number(data.total) || 0).toFixed(2);
+      document.getElementById('cardSubtotal').textContent = '$' + (Number(data.subtotal) || 0).toFixed(2);
+      document.getElementById('cardTax').textContent = '$' + (Number(data.tax) || 0).toFixed(2);
+      document.getElementById('cardPayment').textContent = data.payment_method || 'N/A';
+
+      const tbody = document.getElementById('cardItemsBody');
+      tbody.innerHTML = '';
+      if (Array.isArray(data.items)) {
+        data.items.forEach(item => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td>${item.name || 'Unnamed Item'}</td>
+            <td class="price">$${(Number(item.price) || 0).toFixed(2)}</td>
+          `;
+          tbody.appendChild(tr);
+        });
+      }
+
+      const formattedJson = JSON.stringify(data, null, 2);
+      document.getElementById('jsonCodeBlock').textContent = formattedJson;
+    }
+
+    function copyJson() {
+      if (!latestJsonData) {
+        showNotice("No extracted JSON to copy yet.", "info");
+        return;
+      }
+      navigator.clipboard.writeText(JSON.stringify(latestJsonData, null, 2));
+      showNotice("JSON successfully copied to clipboard!", "info");
+    }
+
+    function downloadJson() {
+      if (!latestJsonData) {
+        showNotice("No extracted JSON to download yet.", "info");
+        return;
+      }
+      const blob = new Blob([JSON.stringify(latestJsonData, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `receipt_${Date.now()}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    // Keyboard shortcut
+    document.addEventListener('keydown', (e) => {
+      if (e.ctrlKey && e.key === 'Enter') {
+        runExtraction();
+      }
+    });
+
+    // Smart Engine Status Polling
+    function checkEngineStatus() {
+      fetch('/api/stats')
+        .then(r => r.json())
+        .then(d => {
+          const badge = document.getElementById('engineBadge');
+          const statusText = document.getElementById('engineStatus');
+          const btn = document.getElementById('extractBtn');
+          const btnIcon = document.getElementById('btnIcon');
+          const btnText = document.getElementById('btnText');
+
+          if (d.model_loaded && !d.is_loading) {
+            isModelReady = true;
+            badge.classList.add('ready');
+            statusText.textContent = "AI Engine: Ready";
+            btn.disabled = false;
+            btnIcon.textContent = "⚡";
+            btnText.textContent = "Extract Structured JSON";
+          } else {
+            isModelReady = false;
+            badge.classList.remove('ready');
+            statusText.textContent = "Engine Warming Up...";
+            btn.disabled = true;
+            btnIcon.textContent = "⏳";
+            btnText.textContent = "Warming Up AI Engine...";
+            setTimeout(checkEngineStatus, 1500);
+          }
+        })
+        .catch(() => {
+          setTimeout(checkEngineStatus, 1500);
+        });
+    }
+
+    checkEngineStatus();
+  </script>
+</body>
+</html>
